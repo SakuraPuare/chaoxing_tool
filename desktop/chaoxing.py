@@ -9,6 +9,7 @@ from urllib import parse
 import tkinter
 import tkinter.ttk as ttk
 import tkinter.messagebox
+import tkinter.simpledialog
 
 from pyDes import des, PAD_PKCS5
 import binascii
@@ -752,16 +753,19 @@ class video_nomal_thread(threading.Thread):
 
 # 自定义任务类，处理菜单任务
 class Things():
-    def __init__(self, username='nobody'):
+    def __init__(self, main, progress, list_classes, username='nobody'):
         self.username = username
+        self.main = main
+        self.progress = progress
+        self.list_classes = list_classes
 
     # 下载课程
-    def misson_1(self, list_classes, main, progress):
+    def misson_1(self, list_chapters):
         while True:
             try: 
-                enter = list_classes.curselection()[0] + 1
+                enter = list_chapters.curselection()[0] + 1
                 enter = int(enter)
-                deal_course_all(enter, main, progress)
+                deal_course_all(enter, self.main, self.progress)
                 tkinter.messagebox.showinfo('提示','课程处理完成！') 
                 break
             except Exception as e:
@@ -770,10 +774,10 @@ class Things():
 
 
     # 刷学习次数
-    def misson_2(self, list_classes, main, progress):
-        progress['value'] = 0
+    def misson_2(self):
+        self.progress['value'] = 0
         while True:
-            enter = list_classes.curselection()[0] + 1
+            enter = self.list_classes.curselection()[0] + 1
             try:
                 count = tkinter.simpledialog.askstring(title = 'ChaoXing Tool',prompt='请输入您要刷取的学习次数',initialvalue = '100')
                 count = int(count)
@@ -788,9 +792,9 @@ class Things():
                     for num in range(count):
                         set_log(course_dict[int(enter)][1])
                         time.sleep(delay)
-                        progress['value'] += 100/count
-                        main.update()
-                    progress['value'] = 100
+                        self.progress['value'] += 100/count
+                        self.main.update()
+                    self.progress['value'] = 100
                     tkinter.messagebox.showinfo('提示','课程处理完成！') 
                     break
                 except Exception as e:
@@ -802,12 +806,14 @@ class Things():
 
 
     # 刷取学习时间
-    def misson_3(self, main, progress, list_classes):
+    def misson_3(self):
+        self.progress['value'] = 0
+        self.main.update()
         tkinter.messagebox.showinfo('提示','时间可能较长(窗口可能无响应)，期间请不要关闭程序!')
         threadPool = []
         try:
-            enter = list_classes.curselection()[0]
-            isThread = get_task_status(course_dict[enter + 1][1], main, progress)
+            enter = self.list_classes.curselection()[0]
+            isThread = get_task_status(course_dict[enter + 1][1], self.main, self.progress)
             if isThread:
                 threadPool.append(isThread)
             for i in threadPool:
@@ -815,30 +821,31 @@ class Things():
                 time.sleep(10)
             for j in threadPool:
                 j.join()
-            progress['value'] = 100
+            self.progress['value'] = 100
+            self.main.update()
             tkinter.messagebox.showinfo('提示','课程处理完成！')
         except Exception as e:
                 tkinter.messagebox.showerror('错误',e)
 
 
     # 完成课程的任务点
-    def misson_4(self, list_classes, main, progress):
-        progress['value'] = 0
+    def misson_4(self):
+        self.progress['value'] = 0
         while True:
-            enter = list_classes.curselection()
+            enter = self.list_classes.curselection()
             try:
                 global video_url_list
                 video_url_list = []
                 for i in enter:
-                    progress['value'] = 0
-                    deal_course_select(course_dict[int(i+1)][1], main, progress)
+                    self.progress['value'] = 0
+                    deal_course_select(course_dict[int(i+1)][1], self.main, self.progress)
                 if len(video_url_list) == 0:
-                    progress['value'] = 100
-                    main.update()
+                    self.progress['value'] = 100
+                    self.main.update()
                     tkinter.messagebox.showinfo('提示', '课程处理完成！') 
                 else:
-                    progress['value'] = 0
-                    main.update()
+                    self.progress['value'] = 0
+                    self.main.update()
                     speed = tkinter.messagebox.askquestion(title = 'Chaoxing Tool',message='立即完成(1秒即可完成视频任务点)？是--立刻 否--常规速度')
                     if speed == 'yes':
                         for item in video_url_list:
@@ -858,8 +865,8 @@ class Things():
                             }
                             rsp = requests.get(url=item.replace("isdrag=0", "isdrag=4"), headers=multimedia_headers)
                             print(rsp.text)
-                            progress['value'] += (100/len(video_url_list))
-                            main.update()
+                            self.progress['value'] += (100/len(video_url_list))
+                            self.main.update()
                     else:
                         video_nomal_thread_pool = []
                         for video_item in video_url_list:
@@ -867,20 +874,114 @@ class Things():
                         for item in video_nomal_thread_pool:
                             item.start()
                             time.sleep(1)
-                            progress['value'] += 1
-                            main.update()
+                            self.progress['value'] += 1
+                            self.main.update()
                         tkinter.messagebox.showinfo('提示','视频线程已全部启动') 
                         for item in video_nomal_thread_pool:
                             item.join()
 
                     # 完成
-                    progress['value'] = 100
-                    main.update()
+                    self.progress['value'] = 100
+                    self.main.update()
                     tkinter.messagebox.showinfo('提示','课程处理完成！') 
                 break
             except Exception as e:
                 tkinter.messagebox.showerror('错误', e)
                 return -1
+
+    # 获取作业
+    def misson_5(self):
+        self.progress['value'] = 0
+        self.main.update()
+        # 获取作业页面
+        new_url_dict = url_302(course_dict[int(self.list_classes.curselection()[0] + 1)][1])
+        new_url = new_url_dict["new_url"]
+        try:
+            course_HTML = course_get(new_url)
+            res_list = course_HTML.xpath('//li/a[@title="作业"]/@data')
+            work_url = 'https://mooc1-2.chaoxing.com' + res_list[0]
+            parsed_result = parse.urlparse(work_url)
+            query = dict(parse.parse_qsl(parsed_result.query))
+            query.update(pageNum=1)
+            prlist = list(parsed_result)
+            prlist[4] = parse.urlencode(query)
+            work_url = parse.ParseResult(*prlist).geturl()
+        except Exception as e:
+            tkinter.messagebox.showerror('错误', e)
+            return -1
+        nums  = 1
+        work_page = course_get(work_url)
+        try:
+            # 翻页
+            question_index = 1
+            f = open('作业批量导出.md', 'a+', encoding="utf-8")
+            # 写入文件
+            f.write("作业批量导出 by chaoxing_tool   \n [github](https://github.com/liuyunfz/chaoxing_tool)   \n")
+            while len(work_page.xpath('////*[@id="RightCon"]/div/div/div[2]/ul/p')) == 0:
+                work_page = course_get(work_url)
+                url_parsed = parse.urlparse(work_url)
+                query = dict(parse.parse_qsl(url_parsed.query))
+                nums = nums + 1
+                query['pageNum'] = str(nums)
+                prlist = list(parsed_result)
+                prlist[4] = parse.urlencode(query)
+                work_url = parse.ParseResult(*prlist).geturl()
+                # 作业列表
+                work_list = work_page.xpath('//p[@class="clearfix"]/a[@class="Btn_blue_1 fr"]/@href')
+                # 遍历作业
+                for work in work_list:
+                    work = work_list[2]
+                    workpage_url = 'https://mooc1.chaoxing.com' + work
+                    question_page = course_get(workpage_url)
+                    # 获取作业
+                    question = question_page.xpath('//div[@style="width:80%;height:100%;float:left;"]')
+                    # 选择
+                    option = question_page.xpath('//a[@style="word-break: break-all;"]')
+                    # 答案
+                    answer = question_page.xpath('//div[@class="Py_answer clearfix"]/span[position()<2]')
+                    # 排除非选择题的情况
+                    if len(option) == 0 or len(option)/4 != len(question) or len(answer) != len(question):
+                        continue
+                    index = 0
+                    for i in range(len(question)):
+                        j = 0
+                        question[i].text =question[i].text.replace('\t','')
+                        question[i].text = question[i].text.replace('\n', '')
+                        question[i].text = question[i].text.replace('\r', '')
+                        question[i].text = "**" + str(question_index) +" "+ question[i].text + "**   "
+                        f.write(question[i].text)
+                        question_index = question_index + 1
+                        f.write("\n")
+                        while j < 4:
+                            if option[index].text != None:
+                                option[index].text = option[index].text + "   "
+                                f.write(option[index].text)
+                                f.write("\n")
+                            else:
+                                formula =  option[index].xpath(".//img/@src")
+                                # 非空
+                                if len(formula) == 0:
+                                    index = index + 1
+                                    j = j + 1
+                                    continue
+                                formula[0] = "![img](" + formula[0] + ")   "
+                                f.write(formula[0])
+                                f.write("\n")
+                            index = index + 1
+                            j = j + 1
+                        answer[i].text = "> " + answer[i].text + "   "
+                        f.write(answer[i].text)
+                        f.write("\n\n")
+                    self.progress['value'] += 5
+                    self.main.update()
+        except Exception as e:
+            tkinter.messagebox.showerror('错误', e)
+            return -1
+        f.close()
+        self.progress['value'] = 100
+        self.main.update()
+        tkinter.messagebox.showinfo('提示', '课程处理完成！')
+        return 0
 
 
 # main window class
@@ -888,10 +989,8 @@ class main_Window:
     def __init__(self):
         self.bit = True
 
-    bit = False
-
     # before_start tip
-    def before_start():
+    def before_start(self):
         bw = tkinter.Tk()
         bw.geometry('850x500')
         bw.title("ChaoXing Tool")
@@ -906,7 +1005,7 @@ class main_Window:
         "3.项目不能完全保证不被系统识别异常，请理性使用\n" + \
         "4.所有功能均采用发送GET/POST请求包完成，效率更高且占用资源低\n" + \
         "5.完成课程任务点中的视频任务点会在最后统一处理，由用户决定完成方式\n" + \
-        "6.其中快速完成可能会导致异常，而常规完成则会同步视频时长完成（需要保证软件保持开启状态）用于避免可能由时长\n带来的异常" + \
+        "6.其中快速完成可能会导致异常，而常规完成则会同步视频时长完成（需要保证软件保持开启状态）用于避免可能由时长\n带来的异常\n" + \
         "7.如果您在使用中有疑问或者遇到了BUG，请前往提交Issue: https://github.com/liuyunfz/chaoxing_tool/issues\n"+\
         "确认后正式使用本软件:\n"
         tkinter.Message(bw, text=txt, width = 1000, anchor = "w"
@@ -919,74 +1018,80 @@ class main_Window:
 
 
     # creat main window
-    def mainwin_create():
+    def mainwin_create(self):
         # window
-        main = tkinter.Tk()
-        main.geometry('800x600')
-        main.title("ChaoXing Tool")
-        main.resizable()
-        main.attributes("-alpha", 0.85)
-        main.config(background ="#E0FFFF")
-        main.iconbitmap('chaoxing_icon.ico')
+        self.main = tkinter.Tk()
+        self.main.geometry('800x600')
+        self.main.title("ChaoXing Tool")
+        self.main.resizable()
+        self.main.attributes("-alpha", 0.85)
+        self.main.config(background ="#E0FFFF")
+        self.main.iconbitmap('chaoxing_icon.ico')
 
         # 进度条
-        progress = tkinter.ttk.Progressbar(main, length=200)
+        progress = tkinter.ttk.Progressbar(self.main, length=200)
         progress.place(x = 300, y =500)
         progress['maximum'] = 100
         progress['value'] = 0
 
         # 显示课程
-        list_classes = tkinter.Listbox(main, bg = "#E0FFFF", height = 20, width = 40, selectmode='extended')
+        list_classes = tkinter.Listbox(self.main, bg = "#E0FFFF", height = 20, width = 40, selectmode='extended')
         list_classes.place(x=5, y=70)
 
+        self.things = Things(self.main, progress, list_classes)
+
         # 显示章节
-        list_chapters = tkinter.Listbox(main, bg = "#E0FFFF", height = 20, width = 40)
+        list_chapters = tkinter.Listbox(self.main, bg = "#E0FFFF", height = 20, width = 40)
         list_chapters.place(x=405, y =70)
 
         # 登录
-        lgb = tkinter.Button(main, text="登录", command=lambda: main_Window.login(text_log, list_classes), relief="groove")
+        lgb = tkinter.Button(self.main, text="登录", command=lambda: self.login(text_log, list_classes), relief="groove")
         lgb.place(x=5, y=0)
         text_log = tkinter.StringVar()
         text_log.set("未登录")
 
         # 退出登录
-        quit_log = tkinter.Button(main, text="退出当前账号，重新登陆", command=lambda:main_Window.restart(main), relief="groove")
+        quit_log = tkinter.Button(self.main, text="退出当前账号，重新登陆", command=lambda:self.restart(), relief="groove")
         quit_log.place(x=5, y=35)
 
         # 登录状态提示
-        log_tip = tkinter.Label(main, bg="#E0FFFF", textvariable=text_log)
+        log_tip = tkinter.Label(self.main, bg="#E0FFFF", textvariable=text_log)
         log_tip.place(x=55, y=0)
 
         # 获取章节
-        get_chapters_bottom = tkinter.Button(main, text="获取章节", command=lambda:
+        get_chapters_bottom = tkinter.Button(self.main, text="获取章节", command=lambda:
         print_chapters(course_dict[int(list_classes.curselection()[0] + 1)][1], list_chapters), relief="groove")
         get_chapters_bottom.place(x=55, y=565)
 
         # 完成任务点
-        complear_fewclass_bottom = tkinter.Button(main, text="完成课程中的任务节点（不包含测验）", command=lambda:
-        Things.misson_4(Things, list_classes, main, progress), relief="groove")
+        complear_fewclass_bottom = tkinter.Button(self.main, text="完成课程中的任务节点（不包含测验）", command=lambda:
+        self.things.misson_4(), relief="groove")
         complear_fewclass_bottom.place(x=125, y=565)
 
         # 下载
-        download = tkinter.Button(main, text="下载课程资源", command=lambda:
-        Things.misson_1(Things, list_chapters, main, progress), relief="groove")
+        download = tkinter.Button(self.main, text="下载课程资源", command=lambda:
+        self.things.misson_1(list_chapters), relief="groove")
         download.place(x=385, y=565)
 
         # 刷学习次数
-        Number_learningtimes = tkinter.Button(main, text="刷取课程学习次数", command=lambda:
-        Things.misson_2(Things, list_classes, main, progress), relief="groove")
+        Number_learningtimes = tkinter.Button(self.main, text="刷取课程学习次数", command=lambda:
+        self.things.misson_2(), relief="groove")
         Number_learningtimes.place(x=485, y=565)
 
         # 刷学习时间
-        Swipelearning = tkinter.Button(main, text="刷取视频学习时间", command=lambda:
-        Things.misson_3(Things, main, progress, list_classes), relief="groove")
+        Swipelearning = tkinter.Button(self.main, text="刷取视频学习时间", command=lambda:
+        self.things.misson_3(), relief="groove")
         Swipelearning.place(x=619, y=565)
 
-        return main
+        # 获取作业
+        homework = tkinter.Button(self.main, text="导出作业", command=lambda : self.things.misson_5(), relief="groove")
+        homework.place(x=350, y=530)
+
+        return self.main
 
 
     # login
-    def login(text_log, list_classes):
+    def login(self, text_log, list_classes):
         # Login window
         lgw = tkinter.Toplevel()
         lgw.geometry("300x300")
@@ -1010,19 +1115,16 @@ class main_Window:
         password.get(), lgw, text_log, list_classes), relief="groove")
         lgb.grid(row=3, column=0, sticky="w", padx=10, pady=5)
 
-
     def restart(self):
-        self.destroy()
-        main_Window.start(main_Window)
-
+        self.main.destroy()
+        self.start()
 
     def start(self):
         self.before_start()
-
-        self = self.mainwin_create()
-
-        self.mainloop()
+        minw = self.mainwin_create()
+        minw.mainloop()
 
 
 if __name__ == "__main__":
-    main_Window = main_Window.start(main_Window)
+    mainwins= main_Window()
+    mainwins.start()
