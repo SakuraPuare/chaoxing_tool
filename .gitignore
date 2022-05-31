@@ -3,3 +3,6 @@ build
 dist
 chaoxing.spec
 .vs
+venv
+.idea
+desktop/作业批量导出.md
