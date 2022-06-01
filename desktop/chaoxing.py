@@ -940,6 +940,7 @@ class Things():
                     f.write("\n")
                     # 获取题目类型
                     type_question = question_page.xpath('//*[@id="ZyBottom"]/div[1]/h2/text()')
+                    ABCD = ['A','B','C','D']
                     for cur_type in type_question:
                         # 单选题
                         if cur_type[2:] == "单选题":
@@ -963,13 +964,16 @@ class Things():
                                 # 非空
                                 if question[i].text == "" or question[i].text == None:
                                     question[i].text = question[i].xpath("./p")[0].text
-                                question[i].text = "**" + str(question_index) +" "+ question[i].text + "**   "
+                                if question[i].text != None:
+                                    question[i].text = "**" + str(question_index) +" "+ question[i].text + "**   "
+                                else:
+                                    question[i].text = ""
                                 f.write(question[i].text)
                                 question_index = question_index + 1
                                 f.write("\n")
                                 while j < 4:
                                     if option[index].text != None:
-                                        option[index].text = option[index].text + "   "
+                                        option[index].text = str(ABCD[j])+ " " + option[index].text + "   "
                                         f.write(option[index].text)
                                         f.write("\n")
                                     else:
@@ -980,9 +984,9 @@ class Things():
                                             j = j + 1
                                             continue
                                         # 图片的绝对地址
-                                        elif formula[0][0] != 'h':
+                                        elif formula[0][0] != 'h' and formula[0] != None:
                                             formula[0] = 'https://mooc1.chaoxing.com' + formula[0]
-                                        formula[0] = "![img](" + formula[0] + ")   "
+                                        formula[0] = str(ABCD[j])+ " " + "![img](" + formula[0] + ")   "
                                         f.write(formula[0])
                                         f.write("\n")
                                     index = index + 1
@@ -993,21 +997,55 @@ class Things():
                             self.progress['value'] += 5
                             self.main.update()
                         elif cur_type[2:] == "判断题":
-                            # TODO 判断题爬取
-                            pass
-                        elif cur_type[2:] == "论述题":
-                            # TODO 论述题爬取
-                            pass
+                            #TODO 判断题爬取
+                            self.progress['value'] += 5
+                            self.main.update()
+                        elif cur_type[2:] == "论述题" or cur_type[2:] == "计算题":
+                            question = question_page.xpath('//div[@style="width:80%;height:100%;float:left;"]/p')
+                            answer = question_page.xpath('//div[@style="overflow: hidden;"]/span/p')
+                            # 非空
+                            if len(question) == 0 or len(answer) == 0 :
+                                continue
+                            # 输出问题
+                            for i in range(len(question)):
+                                if question[i].text == None:
+                                    question[i] = question[i].xpath(".//img/@src")
+                                    if len(question[i]) != 0:
+                                        question[i][0] = "![img](" + question[i][0] + ")   \n"
+                                        f.write(question[i][0])
+                                else:
+                                    question[i] = question[i].xpath("./text()")
+                                    q :str = ""
+                                    for text in question[i]:
+                                        q = q + str(text)
+                                    question[i] = "**" + str(question_index) +" " + q + "**   \n"
+                                    f.write(question[i])
+                                    question_index = question_index + 1
+                            # 输出答案
+                            for j in range(len(answer)):
+                                if answer[j].text == None:
+                                    answer[j] = answer[j].xpath(".//img/@src")
+                                    answer[j][0] = "![img](" + answer[j][0] + ")   \n"
+                                    f.write(answer[j][0])
+                                else:
+                                    answer[j] = answer[j] + "   \n"
+                                    f.write(answer[j])
+                            self.progress['value'] += 5
+                            self.main.update()
                         elif cur_type[2:] == "多选题":
                             # TODO 多选题爬取
-                            pass
+                            self.progress['value'] += 5
+                            self.main.update()
         except Exception as e:
             tkinter.messagebox.showerror('错误', e)
+            # dbg
+            #print('文件', e.__traceback__.tb_frame.f_globals['__file__'])
+            #print('行号', e.__traceback__.tb_lineno)
             return -1
-        f.close()
         self.progress['value'] = 100
         self.main.update()
         tkinter.messagebox.showinfo('提示', '课程处理完成！')
+        f.close()
         return 0
 
 
