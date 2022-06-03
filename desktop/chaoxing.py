@@ -25,6 +25,32 @@ class_list = []
 global_headers = {}
 course_dict = {}
 
+
+# 读入 json
+def json_reader(path):
+    with open(path, 'r', encoding='utf8') as fp:
+        json_data = json.load(fp)
+    return json_data
+
+# 写入 json
+def json_write(path, json_data):
+    with open(path,"w") as fp:
+        json.dump(json_data, fp, indent=4)
+
+# 保存 cookie
+def user_write(uname, password):
+    f = open("user", "w")
+    f.write(uname)
+    f.write("\n")
+    f.write(password)
+    f.close()
+    return
+
+# 读取 cookie
+def user_read():
+    f = open("user", "r")
+    return f.read()
+
 # pwd DES 加密
 def des_pwd(msg, key):
     des_obj = des(key, key, pad=None, padmode=PAD_PKCS5)
@@ -40,9 +66,12 @@ def encode_enc(clazzid: str, duration: int, objectId: str, otherinfo: str, jobid
 
 
 # 手机号登录，返回response
-def sign_in(uname: str, password: str):
+def sign_in(uname: str, password: str, bit):
     sign_in_url = "https://passport2.chaoxing.com/fanyalogin"
-    sign_in_data = "fid=314&uname={0}&password={1}&refer=http%253A%252F%252Fi.mooc.chaoxing.com&t=true".format(uname, des_pwd(password, "u2oh6Vu^").decode("utf-8"))
+    if not bit :
+        password = des_pwd(password, "u2oh6Vu^").decode("utf-8")
+        user_write(uname, password)
+    sign_in_data = "fid=314&uname={0}&password={1}&refer=http%253A%252F%252Fi.mooc.chaoxing.com&t=true".format(uname, password)
     sign_in_headers = {
         'Accept': 'application/json, text/javascript, */*; q=0.01',
         'Accept-Encoding': 'gzip, deflate, br',
@@ -65,16 +94,14 @@ def sign_in(uname: str, password: str):
 
 
 # 任务1：用户登录，并合并cookie
-def step_1(uname, password, lgw, text_log, list_classes):      
-    sign_in_rsp = sign_in(uname, password)
+def step_1(uname, password, lgw, text_log, list_classes, bit):
+    sign_in_rsp = sign_in(uname, password, bit)
     sign_in_json = sign_in_rsp.json()
     if sign_in_json['status'] == False:
         tkinter.messagebox.showerror('错误', '登陆失败！')
-        sign_sus = False
         return False
     else:
-        sign_sus = True
-        tkinter.messagebox.showinfo('提示', '登录成功！') 
+        tkinter.messagebox.showinfo('提示', '登录成功！')
     global cookieStr, uid, global_headers
     uid = sign_in_rsp.cookies['_uid']
     cookieStr = ''
@@ -787,7 +814,7 @@ class Things():
                         delay = tkinter.simpledialog.askstring(title = 'ChaoXing Tool'
                             ,prompt='未防止频次过快的次数刷取造成理论与实际误差较大，需要您手动指定每次次数刷取的间隔 请输入间隔时间(单位秒)：',initialvalue = '1')
                         delay = int(delay)
-                    except:
+                    except Exception as e:
                         tkinter.messagebox.showerror('错误 将使用默认时间', e)
                         delay = 1
                     for num in range(count):
@@ -1048,11 +1075,35 @@ class Things():
         f.close()
         return 0
 
+        # 题目答案查询
+    def misson_6(self, data):
+        url = data["url"]
+        if data["uid"] and data["token"]:
+                url = url + "?uid=" + data["uid"] + "&token=" + data["token"] + "&question="
+        question = tkinter.simpledialog.askstring(title='ChaoXing Tool', prompt='请输入要查询的题目：', initialvalue='')
+        question = str(question)
+        url = url + question
+        try:
+            req = requests.get(url)
+            res = json.loads(req.text)
+            if req.status_code == 200:
+                if type(res["data"]) is str:
+                    tkinter.messagebox.showinfo('Answer', 'answer:' + res['data'] + ' ' + res['msg'])
+                else:
+                    ans_data = ""
+                    for ans in res["data"]:
+                        ans_data = ans_data + ans["details"]["answer"]
+                    tkinter.messagebox.showinfo('Answer', 'answer:' + ans_data + ' ' + res['msg'])
+            else:
+                tkinter.messagebox.showinfo('Answer', '未查找到答案或查询次数用完')
+        except Exception as e:
+            tkinter.messagebox.showerror('错误', e)
 
 # main window class
 class main_Window:
-    def __init__(self):
+    def __init__(self, json_data):
         self.bit = True
+        self.json_data = json_data
 
     # before_start tip
     def before_start(self):
@@ -1074,11 +1125,12 @@ class main_Window:
         "7.如果您在使用中有疑问或者遇到了BUG，请前往提交Issue: https://github.com/liuyunfz/chaoxing_tool/issues\n"+\
         "确认后正式使用本软件:\n"
         tkinter.Message(bw, text=txt, width = 1000, anchor = "w"
-        , justify = "left", bg = "#E0FFFF", fg = "black").pack()
+        , justify = "left", bg = self.json_data["theme"][self.json_data["current-theme"]]["background-color"],
+                        fg = self.json_data["theme"][self.json_data["current-theme"]]["font-color"]).pack()
         tkinter.Button(bw, text="点击确认", command=bw.destroy, relief="groove").pack()
 
-        bw.attributes("-alpha", 0.85)
-        bw.config(background ="#E0FFFF")
+        bw.attributes("-alpha", self.json_data["theme"][self.json_data["current-theme"]]["transparency"])
+        bw.config(background = self.json_data["theme"][self.json_data["current-theme"]]["background-color"])
         bw.mainloop()
 
 
@@ -1089,8 +1141,8 @@ class main_Window:
         self.main.geometry('800x600')
         self.main.title("ChaoXing Tool")
         self.main.resizable()
-        self.main.attributes("-alpha", 0.85)
-        self.main.config(background ="#E0FFFF")
+        self.main.attributes("-alpha", self.json_data["theme"][self.json_data["current-theme"]]["transparency"])
+        self.main.config(background = self.json_data["theme"][self.json_data["current-theme"]]["background-color"])
         self.main.iconbitmap('chaoxing_icon.ico')
 
         # 进度条
@@ -1100,85 +1152,115 @@ class main_Window:
         progress['value'] = 0
 
         # 显示课程
-        list_classes = tkinter.Listbox(self.main, bg = "#E0FFFF", height = 20, width = 40, selectmode='extended')
+        list_classes = tkinter.Listbox(self.main,  fg=self.json_data["theme"][self.json_data["current-theme"]]["font-color"],
+                                       bg = self.json_data["theme"][self.json_data["current-theme"]]["background-color"], height = 20,
+                                       width = 40, selectmode='extended')
         list_classes.place(x=5, y=70)
 
         self.things = Things(self.main, progress, list_classes)
 
         # 显示章节
-        list_chapters = tkinter.Listbox(self.main, bg = "#E0FFFF", height = 20, width = 40)
+        list_chapters = tkinter.Listbox(self.main, fg=self.json_data["theme"][self.json_data["current-theme"]]["font-color"],
+                                        bg = self.json_data["theme"][self.json_data["current-theme"]]["background-color"], height = 20, width = 40)
         list_chapters.place(x=405, y =70)
 
         # 登录
-        lgb = tkinter.Button(self.main, text="登录", command=lambda: self.login(text_log, list_classes), relief="groove")
+        lgb = tkinter.Button(self.main, text="登录", command=lambda: self.login(text_log, list_classes), relief="groove",
+                             fg=self.json_data["theme"][self.json_data["current-theme"]]["font-color"],
+                             bg = self.json_data["theme"][self.json_data["current-theme"]]["background-color"])
         lgb.place(x=5, y=0)
         text_log = tkinter.StringVar()
         text_log.set("未登录")
 
         # 退出登录
-        quit_log = tkinter.Button(self.main, text="退出当前账号，重新登陆", command=lambda:self.restart(), relief="groove")
+        quit_log = tkinter.Button(self.main, text="退出当前账号，重新登陆", command=lambda:self.restart(), relief="groove",
+                                  fg=self.json_data["theme"][self.json_data["current-theme"]]["font-color"],
+                                  bg = self.json_data["theme"][self.json_data["current-theme"]]["background-color"])
         quit_log.place(x=5, y=35)
 
         # 登录状态提示
-        log_tip = tkinter.Label(self.main, bg="#E0FFFF", textvariable=text_log)
+        log_tip = tkinter.Label(self.main, bg = self.json_data["theme"][self.json_data["current-theme"]]["background-color"],
+                                textvariable=text_log, fg = self.json_data["theme"][self.json_data["current-theme"]]["font-color"])
         log_tip.place(x=55, y=0)
 
         # 获取章节
         get_chapters_bottom = tkinter.Button(self.main, text="获取章节", command=lambda:
-        print_chapters(course_dict[int(list_classes.curselection()[0] + 1)][1], list_chapters), relief="groove")
+        print_chapters(course_dict[int(list_classes.curselection()[0] + 1)][1], list_chapters), relief="groove",
+                                             fg=self.json_data["theme"][self.json_data["current-theme"]]["font-color"],
+                                             bg = self.json_data["theme"][self.json_data["current-theme"]]["background-color"])
         get_chapters_bottom.place(x=55, y=565)
 
         # 完成任务点
         complear_fewclass_bottom = tkinter.Button(self.main, text="完成课程中的任务节点（不包含测验）", command=lambda:
-        self.things.misson_4(), relief="groove")
+        self.things.misson_4(), relief="groove", fg=self.json_data["theme"][self.json_data["current-theme"]]["font-color"],
+                                                  bg = self.json_data["theme"][self.json_data["current-theme"]]["background-color"])
         complear_fewclass_bottom.place(x=125, y=565)
 
         # 下载
         download = tkinter.Button(self.main, text="下载课程资源", command=lambda:
-        self.things.misson_1(list_chapters), relief="groove")
+        self.things.misson_1(list_chapters), relief="groove", fg=self.json_data["theme"][self.json_data["current-theme"]]["font-color"],
+                                  bg = self.json_data["theme"][self.json_data["current-theme"]]["background-color"])
         download.place(x=385, y=565)
 
         # 刷学习次数
         Number_learningtimes = tkinter.Button(self.main, text="刷取课程学习次数", command=lambda:
-        self.things.misson_2(), relief="groove")
+        self.things.misson_2(), relief="groove", fg=self.json_data["theme"][self.json_data["current-theme"]]["font-color"],
+                                              bg = self.json_data["theme"][self.json_data["current-theme"]]["background-color"])
         Number_learningtimes.place(x=485, y=565)
 
         # 刷学习时间
         Swipelearning = tkinter.Button(self.main, text="刷取视频学习时间", command=lambda:
-        self.things.misson_3(), relief="groove")
+        self.things.misson_3(), relief="groove", fg=self.json_data["theme"][self.json_data["current-theme"]]["font-color"],
+                                       bg = self.json_data["theme"][self.json_data["current-theme"]]["background-color"])
         Swipelearning.place(x=619, y=565)
 
         # 获取作业
-        homework = tkinter.Button(self.main, text="导出作业", command=lambda : self.things.misson_5(), relief="groove")
-        homework.place(x=350, y=530)
+        homework = tkinter.Button(self.main, text="导出作业", command=lambda : self.things.misson_5(), relief="groove",
+                                  fg=self.json_data["theme"][self.json_data["current-theme"]]["font-color"], bg = self.json_data["theme"][self.json_data["current-theme"]]["background-color"])
+        homework.place(x=300, y=530)
 
+        # 题目答案查询
+        find_answer = tkinter.Button(self.main, text="题目答案查询", command=lambda : self.things.misson_6(self.json_data["qbank"][self.json_data["current-qbank"]]),
+                                     relief="groove",fg=self.json_data["theme"][self.json_data["current-theme"]]["font-color"],
+                                     bg = self.json_data["theme"][self.json_data["current-theme"]]["background-color"])
+        find_answer.place(x=373, y=530)
         return self.main
 
 
     # login
     def login(self, text_log, list_classes):
-        # Login window
+        # 登录窗口
         lgw = tkinter.Toplevel()
         lgw.geometry("300x300")
 
-        # input tip
-        account_input = tkinter.Label(lgw,text = "账号：",  bg="#E0FFFF")        
-        password_input = tkinter.Label(lgw,text = "密码：", bg="#E0FFFF")        
-        account_input.grid(row = 0)
-        password_input.grid(row = 1)
+        # 自动登录
+        if self.json_data["auto-signin"] == True:
+            data = user_read()
+            for i in range(len(data)):
+                if data[i] == '\n':
+                    break
+            account = data[:i]
+            password = data[i+1:]
+            step_1(account, password, lgw, text_log, list_classes, 1)
+            pass
+        else :
+            # 输入控件
+            account_input = tkinter.Label(lgw,text = "账号：",  bg= self.json_data["theme"][self.json_data["current-theme"]]["background-color"], fg=self.json_data["theme"][self.json_data["current-theme"]]["font-color"])
+            password_input = tkinter.Label(lgw,text = "密码：", bg = self.json_data["theme"][self.json_data["current-theme"]]["background-color"], fg=self.json_data["theme"][self.json_data["current-theme"]]["font-color"])
+            account_input.grid(row = 0)
+            password_input.grid(row = 1)
 
-        # input
-        account = tkinter.Entry(lgw)
-        password = tkinter.Entry(lgw, show = '*')
-        account.grid(row=0, column=1)
-        password.grid(row=1, column=1)
+            account = tkinter.Entry(lgw)
+            password = tkinter.Entry(lgw, show = '*')
+            account.grid(row=0, column=1)
+            password.grid(row=1, column=1)
 
-        # window
-        lgw.attributes("-alpha",0.85)
-        lgw.config(background ="#E0FFFF")
-        lgb = tkinter.Button(lgw, text = "点击登录", command = lambda : step_1(account.get(), 
-        password.get(), lgw, text_log, list_classes), relief="groove")
-        lgb.grid(row=3, column=0, sticky="w", padx=10, pady=5)
+            # 窗口
+            lgw.attributes("-alpha", self.json_data["theme"][self.json_data["current-theme"]]["transparency"])
+            lgw.config(background = self.json_data["theme"][self.json_data["current-theme"]]["background-color"])
+            lgb = tkinter.Button(lgw, text = "点击登录", command = lambda : step_1(account.get(),
+            password.get(), lgw, text_log, list_classes, 0), relief="groove", fg=self.json_data["theme"][self.json_data["current-theme"]]["font-color"])
+            lgb.grid(row=3, column=0, sticky="w", padx=10, pady=5)
 
     def restart(self):
         self.main.destroy()
@@ -1191,5 +1273,6 @@ class main_Window:
 
 
 if __name__ == "__main__":
-    mainwins= main_Window()
+    json_data = json_reader("./config.json")
+    mainwins= main_Window(json_data)
     mainwins.start()

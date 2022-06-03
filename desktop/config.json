@@ -1,0 +1,34 @@
+{
+  "current-theme": "default",
+  "auto-signin": false,
+  "current-qbank": "TIKU2",
+  "qbank": {
+    "TIKU1": {
+      "url": "https://api.wanshiwu.asia/api/search",
+      "uid": "注册得到",
+      "token": "注册得到"
+    },
+    "TIKU2": {
+      "url": "http://api.tianxingccc.com/api/get_cx_answer?keyword=",
+      "uid": null,
+      "token": null
+    }
+  },
+  "theme": {
+    "default": {
+      "background-color": "#E0FFFF",
+      "font-color": "#000000",
+      "transparency": 0.85
+    },
+    "dark": {
+      "background-color": "#000000",
+      "font-color": "#778899",
+      "transparency": 0.85
+    },
+    "light": {
+      "background-color": "#FFFFFF",
+      "font-color": "#000000",
+      "transparency": 0.85
+    }
+  }
+}
